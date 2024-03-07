@@ -1,18 +1,12 @@
-import {
-  Component,
-  Inject,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
-import { Meta, Title } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
-import { IMainItem, MainService } from './services/main.service';
-import { isPlatformServer, NgClass } from '@angular/common';
-import { FooterComponent } from './components/footer/footer.component';
+import { NgClass } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { RouterOutlet } from '@angular/router';
+
+import { FooterComponent } from './components/footer/footer.component';
 import { NavigationComponent } from './components/navigation/navigation.component';
+import { MainItem } from './services/main-item';
+import { MainService } from './services/main.service';
 
 @Component({
   selector: 'esn-root',
@@ -21,42 +15,29 @@ import { NavigationComponent } from './components/navigation/navigation.componen
   imports: [NgClass, NavigationComponent, RouterOutlet, FooterComponent],
 })
 export class AppComponent implements OnInit {
-  public mainInfo: any;
+  public mainInfo?: MainItem;
 
   constructor(
     private mainService: MainService,
-    private transferState: TransferState,
-    private meta: Meta,
     private title: Title,
-    @Inject(PLATFORM_ID) private platformId: object,
   ) {}
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get<IMainItem | undefined>(
-      makeStateKey('mainInfo'),
-      undefined,
-    );
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    } else {
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
+
+    if (this.mainInfo) {
       this.setTitle();
     }
   }
 
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-    this.meta.addTags([{ rel: 'canonical', href: 'REPLACE_SECTION_URL' }]);
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
-    this.setTitle();
-  }
-
   private setTitle(): void {
-    this.title.setTitle('Home | ' + this.mainInfo.section_long_name);
+    this.title.setTitle('Home | ' + this.mainInfo?.section_long_name);
   }
 }

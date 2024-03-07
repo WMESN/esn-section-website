@@ -1,70 +1,86 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { catchError, map, shareReplay, tap } from 'rxjs/operators';
+
+import { BehaviorSubject, Observable } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { environment as env } from 'src/environments/environment';
-import { MessageService } from './message.service';
+
+import { ContentItem } from './content-item';
+import { ErrorService } from './error.service';
 
 export interface IContentItem {
-  Title: string;
-  Text: string;
-  Layout:
-    | 'Text_only'
-    | 'Text_above_img_below'
-    | 'Text_below_img_above'
-    | 'Text_left_img_right'
-    | 'Text_right_img_left';
-  Wrap_in_shadow_box: boolean;
-  Page_for_display:
-    | 'Landing_page'
-    | 'Members_page'
-    | 'Team_page'
-    | 'ESNcard_page'
-    | 'Incomings_page';
-  Order_on_page: number;
-  Image: {
-    id: string;
-    width: number;
-    height: number;
-    description: string;
-  };
+  data: ContentItem[];
 }
 
 @Injectable()
 export class ContentService {
+  private contentLandingPageSubject = new BehaviorSubject<ContentItem[]>([]);
+  private contentMembersPageSubject = new BehaviorSubject<ContentItem[]>([]);
+  private contentTeamPageSubject = new BehaviorSubject<ContentItem[]>([]);
+  private contentESNcardPageSubject = new BehaviorSubject<ContentItem[]>([]);
+  private contentIncomingsPageSubject = new BehaviorSubject<ContentItem[]>([]);
+
   private url = `${env.DIRECTUS_URL}content${env.DIRECTUS_SECTION_FILTER}${env.SECTION_NAME}`;
 
   constructor(
+    private errorService: ErrorService,
     private http: HttpClient,
-    private messageService: MessageService,
-  ) {}
+  ) {
+    this.fetchPageContent('Landing_page');
+    this.fetchPageContent('Members_page');
+    this.fetchPageContent('Team_page');
+    this.fetchPageContent('ESNcard_page');
+    this.fetchPageContent('Incomings_page');
+  }
 
-  fetchPageContent(page: string): Observable<IContentItem[]> {
+  public getContent(page: string): Observable<ContentItem[]> {
+    switch (page) {
+      case 'Landing_page':
+        return this.contentLandingPageSubject.asObservable();
+      case 'Members_page':
+        return this.contentMembersPageSubject.asObservable();
+      case 'Team_page':
+        return this.contentTeamPageSubject.asObservable();
+      case 'ESNcard_page':
+        return this.contentESNcardPageSubject.asObservable();
+      default: // 'Incomings_page':
+        return this.contentIncomingsPageSubject.asObservable();
+    }
+  }
+
+  private fetchPageContent(page: string): void {
     const params = new HttpParams()
       .set('fields', '*.*')
       .set('sort', 'Order_on_page');
 
-    return this.http
-      .get<IContentItem[]>(`${this.url}&filter[Page_for_display]=${page}`, {
+    this.http
+      .get<IContentItem>(`${this.url}&filter[Page_for_display]=${page}`, {
         params,
       })
       .pipe(
-        shareReplay(1),
-        map((res: any) => res.data),
-        tap(() => this.log('fetched content')),
-        catchError(this.handleError<IContentItem[]>('fetchContentList')),
-      );
-  }
-
-  private handleError<T>(operation = 'operation', result?: T) {
-    return (error: Error): Observable<T> => {
-      console.error(error);
-      this.log(`${operation} failed: ${error.message}`);
-      return of(result as T);
-    };
-  }
-  private log(message: string) {
-    this.messageService.add(`ContentService: ${message}`);
+        catchError(
+          this.errorService.handleError<IContentItem>('fetchContentList'),
+        ),
+      )
+      .subscribe((content: IContentItem) => {
+        switch (page) {
+          case 'Landing_page':
+            this.contentLandingPageSubject.next(content?.data);
+            break;
+          case 'Members_page':
+            this.contentMembersPageSubject.next(content?.data);
+            break;
+          case 'Team_page':
+            this.contentTeamPageSubject.next(content?.data);
+            break;
+          case 'ESNcard_page':
+            this.contentESNcardPageSubject.next(content?.data);
+            break;
+          case 'Incomings_page':
+            this.contentIncomingsPageSubject.next(content?.data);
+            break;
+        }
+      });
   }
 }

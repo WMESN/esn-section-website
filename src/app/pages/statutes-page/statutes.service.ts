@@ -1,43 +1,47 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { catchError, map, shareReplay, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { environment as env } from 'src/environments/environment';
-import { MessageService } from '../../services/message.service';
+import { ErrorService } from 'src/app/services/error.service';
+
+import { StatutesItem } from './statutes-item';
 
 export interface IStatutesItem {
-  text: string;
+  data: StatutesItem[];
 }
 
 @Injectable()
 export class StatutesService {
+  private statutesSubject = new BehaviorSubject<StatutesItem | undefined>(
+    undefined,
+  );
   private url = `${env.DIRECTUS_URL}statutes${env.DIRECTUS_SECTION_FILTER}${env.SECTION_NAME}`;
 
   constructor(
+    private errorService: ErrorService,
     private http: HttpClient,
-    private messageService: MessageService,
-  ) {}
+  ) {
+    this.fetchStatutes();
+  }
 
-  fetchStatutes(): Observable<IStatutesItem> {
+  public getStatutes(): Observable<StatutesItem | undefined> {
+    return this.statutesSubject.asObservable();
+  }
+
+  private fetchStatutes(): void {
     const params = new HttpParams().set('fields', 'text');
 
-    return this.http.get<IStatutesItem>(this.url, { params }).pipe(
-      shareReplay(1),
-      map((res: any) => res.data[0]),
-      tap(() => this.log('fetched statutes')),
-      catchError(this.handleError<IStatutesItem>('fetchStatutesList')),
-    );
-  }
-
-  private handleError<T>(operation = 'operation', result?: T) {
-    return (error: any): Observable<T> => {
-      console.error(error);
-      this.log(`${operation} failed: ${error.message}`);
-      return of(result as T);
-    };
-  }
-  private log(message: string) {
-    this.messageService.add(`StatutesService: ${message}`);
+    this.http
+      .get<IStatutesItem>(this.url, { params })
+      .pipe(
+        catchError(
+          this.errorService.handleError<IStatutesItem>('fetchStatutesList'),
+        ),
+      )
+      .subscribe((res) => {
+        this.statutesSubject.next(res?.data[0]);
+      });
   }
 }

@@ -1,22 +1,16 @@
-import {
-  Component,
-  Inject,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
+import { NgIf } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
-import {
-  IImprintEsnGerItem,
-  ImprintEsnGerService,
-} from './imprint-esnger.service';
 
-import { IImprintItem, ImprintService } from './imprint.service';
-import { IMainItem, MainService } from 'src/app/services/main.service';
-import { isPlatformServer, NgIf } from '@angular/common';
 import { MarkdownModule } from 'ngx-markdown';
+
+import { MainService } from 'src/app/services/main.service';
+import { MainItem } from 'src/app/services/main-item';
+
+import { ImprintService } from './imprint.service';
+import { ImprintItem } from './imprint-item';
+import { ImprintESNGermanyService } from './imprint-esn-germany.service';
+import { ImprintESNGermanyItem } from './imprint-esn-germany-item';
 
 @Component({
   selector: 'esn-imprint-page',
@@ -26,84 +20,51 @@ import { MarkdownModule } from 'ngx-markdown';
   imports: [NgIf, MarkdownModule],
 })
 export class ImprintPageComponent implements OnInit {
-  private mainInfo: IMainItem | undefined;
-  public imprintSection: IImprintItem | undefined;
-  public imprintEsnGermany: IImprintEsnGerItem | undefined;
+  public imprintSection?: ImprintItem;
+  public imprintESNGermany?: ImprintESNGermanyItem;
+  private mainInfo?: MainItem;
 
   constructor(
-    private title: Title,
+    private imprintESNGermanyService: ImprintESNGermanyService,
     private imprintService: ImprintService,
-    private imprintEsnGerService: ImprintEsnGerService,
     private mainService: MainService,
-    private transferState: TransferState,
-    @Inject(PLATFORM_ID) private platformId: object,
+    private title: Title,
   ) {}
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get(makeStateKey('mainInfo'), undefined);
-    this.imprintSection = this.transferState.get(
-      makeStateKey('imprintSection'),
-      undefined,
-    );
-    this.imprintEsnGermany = this.transferState.get(
-      makeStateKey('imprintEsnGermany'),
-      undefined,
-    );
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
 
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    } else {
+    if (this.mainInfo) {
       this.setTitle();
     }
 
-    if (!this.imprintSection) {
-      this.fetchImprintSection();
-    }
+    this.imprintService.getImprint().subscribe({
+      next: (imprintSection?: ImprintItem) => {
+        this.imprintSection = imprintSection;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
 
-    if (!this.imprintEsnGermany) {
-      this.fetchImprintEsnGermany();
-    }
-  }
-
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
-    this.setTitle();
-  }
-
-  async fetchImprintSection(): Promise<void> {
-    this.imprintSection = await firstValueFrom(
-      this.imprintService.fetchImprint(),
-    );
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IImprintItem>(
-        makeStateKey('imprintSection'),
-        this.imprintSection,
-      );
-    }
-  }
-
-  async fetchImprintEsnGermany(): Promise<void> {
-    this.imprintEsnGermany = await firstValueFrom(
-      this.imprintEsnGerService.fetchEsnGerImprint(),
-    ).then((res: any) => res[0]);
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IImprintEsnGerItem | undefined>(
-        makeStateKey('imprintEsnGermany'),
-        this.imprintEsnGermany,
-      );
-    }
+    this.imprintESNGermanyService.getImprint().subscribe({
+      next: (imprintESNGermany?: ImprintESNGermanyItem) => {
+        this.imprintESNGermany = imprintESNGermany;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
   }
 
   private setTitle(): void {
-    this.title.setTitle('Legal Notice | ' + this.mainInfo!.section_long_name);
+    this.title.setTitle('Legal Notice | ' + this.mainInfo?.section_long_name);
   }
 }

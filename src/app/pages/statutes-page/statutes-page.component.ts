@@ -1,18 +1,13 @@
-import {
-  Component,
-  Inject,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
+import { NgIf } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
-
-import { IStatutesItem, StatutesService } from './statutes.service';
-import { IMainItem, MainService } from 'src/app/services/main.service';
-import { isPlatformServer, NgIf } from '@angular/common';
 import { MarkdownModule } from 'ngx-markdown';
+
+import { MainService } from 'src/app/services/main.service';
+import { MainItem } from 'src/app/services/main-item';
+
+import { StatutesService } from './statutes.service';
+import { StatutesItem } from './statutes-item';
 
 @Component({
   selector: 'esn-statutes-page',
@@ -22,60 +17,39 @@ import { MarkdownModule } from 'ngx-markdown';
   imports: [NgIf, MarkdownModule],
 })
 export class StatutesPageComponent implements OnInit {
-  public statutesItem: IStatutesItem | undefined;
-  private mainInfo: any;
+  private mainInfo?: MainItem;
+  public statutes?: StatutesItem;
 
   constructor(
-    private title: Title,
-    private statutesService: StatutesService,
     private mainService: MainService,
-    private transferState: TransferState,
-    @Inject(PLATFORM_ID) private platformId: object,
+    private statutesService: StatutesService,
+    private title: Title,
   ) {}
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get(makeStateKey('mainInfo'), undefined);
-    this.statutesItem = this.transferState.get(
-      makeStateKey('statutesItemList'),
-      undefined,
-    );
-
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    } else {
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
+    if (this.mainInfo) {
       this.setTitle();
     }
 
-    if (!this.statutesItem) {
-      this.fetchStatutes();
-    }
-  }
-
-  async fetchStatutes(): Promise<void> {
-    this.statutesItem = await firstValueFrom(
-      this.statutesService.fetchStatutes(),
-    );
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IStatutesItem>(
-        makeStateKey('statutesItemList'),
-        this.statutesItem,
-      );
-    }
-  }
-
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
-    this.setTitle();
+    this.statutesService.getStatutes().subscribe({
+      next: (statutes?: StatutesItem) => {
+        this.statutes = statutes!;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
   }
 
   private setTitle(): void {
-    this.title.setTitle('Our Team | ' + this.mainInfo.section_long_name);
+    this.title.setTitle('Our Team | ' + this.mainInfo?.section_long_name);
   }
 }

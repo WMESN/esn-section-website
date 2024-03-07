@@ -1,23 +1,11 @@
-import {
-  DOCUMENT,
-  isPlatformServer,
-  NgIf,
-  NgFor,
-  NgClass,
-} from '@angular/common';
-import {
-  Component,
-  Inject,
-  Input,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
-import { firstValueFrom } from 'rxjs';
-import { IContentItem, ContentService } from 'src/app/services/content.service';
-import { environment } from 'src/environments/environment';
+import { DOCUMENT, NgClass, NgFor, NgIf } from '@angular/common';
+import { Component, Inject, Input, OnInit } from '@angular/core';
+
 import { MarkdownModule } from 'ngx-markdown';
+
+import { ContentService } from 'src/app/services/content.service';
+import { ContentItem } from 'src/app/services/content-item';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'esn-content-item',
@@ -28,14 +16,12 @@ import { MarkdownModule } from 'ngx-markdown';
 })
 export class ContentItemComponent implements OnInit {
   @Input() page!: string;
-  public contentInfo: IContentItem[] | undefined;
+  public contentInfo?: ContentItem[];
   public directusImageLink: string = environment.DIRECTUS_URL_IMAGE;
 
   constructor(
-    private contentService: ContentService,
-    private transferState: TransferState,
-    @Inject(PLATFORM_ID) private platformId: object,
     @Inject(DOCUMENT) private document: Document,
+    private contentService: ContentService,
   ) {
     window.addEventListener('scroll', () => {
       const box0 = this.document.querySelector('.box0');
@@ -60,26 +46,13 @@ export class ContentItemComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.contentInfo = this.transferState.get<IContentItem[] | undefined>(
-      makeStateKey('contentInfo'),
-      undefined,
-    );
-
-    if (!this.contentInfo) {
-      this.fetchContent();
-    }
-  }
-
-  async fetchContent(): Promise<void> {
-    this.contentInfo = await firstValueFrom(
-      this.contentService.fetchPageContent(this.page),
-    );
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IContentItem[]>(
-        makeStateKey('contentInfo'),
-        this.contentInfo,
-      );
-    }
+    this.contentService.getContent(this.page).subscribe({
+      next: (contentInfo?: ContentItem[]) => {
+        this.contentInfo = contentInfo!;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
   }
 }

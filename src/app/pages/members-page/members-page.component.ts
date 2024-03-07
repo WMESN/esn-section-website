@@ -1,17 +1,9 @@
-import { isPlatformServer } from '@angular/common';
-import {
-  Component,
-  Inject,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
 
-import { IMainItem, MainService } from 'src/app/services/main.service';
-import { ContentItemComponent } from '../../components/content-item/content-item.component';
+import { ContentItemComponent } from 'src/app/components/content-item/content-item.component';
+import { MainItem } from 'src/app/services/main-item';
+import { MainService } from 'src/app/services/main.service';
 
 @Component({
   selector: 'esn-members-page',
@@ -21,39 +13,30 @@ import { ContentItemComponent } from '../../components/content-item/content-item
   imports: [ContentItemComponent],
 })
 export class MembersPageComponent implements OnInit {
+  public mainInfo?: MainItem;
   public readonly page: string = 'Members_page';
-  public mainInfo: IMainItem | undefined;
 
   constructor(
-    private title: Title,
     private mainService: MainService,
-    private transferState: TransferState,
-    @Inject(PLATFORM_ID) private platformId: object,
+    private title: Title,
   ) {}
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get(makeStateKey('mainInfo'), undefined);
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
 
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    } else {
+    if (this.mainInfo) {
       this.setTitle();
     }
   }
 
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
-    this.setTitle();
-  }
-
   private setTitle(): void {
-    this.title.setTitle('For Members | ' + this.mainInfo!.section_long_name);
+    this.title.setTitle('For Members | ' + this.mainInfo?.section_long_name);
   }
 }

@@ -1,25 +1,19 @@
+import { DOCUMENT, NgIf, isPlatformBrowser } from '@angular/common';
 import {
   Component,
   HostListener,
   Inject,
   OnInit,
   PLATFORM_ID,
-  TransferState,
-  makeStateKey,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { GalleryItem, ImageItem, GalleryComponent } from 'ng-gallery';
-import {
-  DOCUMENT,
-  isPlatformBrowser,
-  isPlatformServer,
-  NgIf,
-} from '@angular/common';
-import { firstValueFrom } from 'rxjs';
 
+import { GalleryComponent, GalleryItem, ImageItem } from 'ng-gallery';
+
+import { ContentItemComponent } from 'src/app/components/content-item/content-item.component';
+import { MainItem } from 'src/app/services/main-item';
+import { MainService } from 'src/app/services/main.service';
 import { environment as env } from 'src/environments/environment';
-import { IMainItem, MainService } from 'src/app/services/main.service';
-import { ContentItemComponent } from '../../components/content-item/content-item.component';
 
 @Component({
   selector: 'esn-landing-page',
@@ -29,19 +23,17 @@ import { ContentItemComponent } from '../../components/content-item/content-item
   imports: [NgIf, GalleryComponent, ContentItemComponent],
 })
 export class LandingPageComponent implements OnInit {
-  public mainInfo: any;
-
-  public images!: GalleryItem[];
-  public strapiLink: string = env.STRAPI_SECTION_URL_IMAGE;
   public directusImageLink: string = env.DIRECTUS_URL_IMAGE;
-  public showThumb = true;
+  public images!: GalleryItem[];
   public isBrowser: boolean;
+  public mainInfo?: MainItem;
   public readonly page: string = 'Landing_page';
+  public strapiLink: string = env.STRAPI_SECTION_URL_IMAGE;
+  public showThumb = true;
 
   constructor(
-    private title: Title,
     private mainService: MainService,
-    private transferState: TransferState,
+    private title: Title,
     @Inject(DOCUMENT) private document: Document,
     @Inject(PLATFORM_ID) private platformId: object,
   ) {
@@ -54,33 +46,25 @@ export class LandingPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get(makeStateKey('mainInfo'), undefined);
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+        this.setImages();
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
 
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    } else {
+    if (this.mainInfo) {
       this.setTitle();
       this.setImages();
     }
-    this.setGalleryThumb();
-  }
-
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
-    this.setTitle();
-    this.setImages();
   }
 
   private setImages(): void {
     this.images = [];
-    if (this.mainInfo.use_image_slideshow) {
+    if (this.mainInfo?.use_image_slideshow) {
       this.mainInfo.imagegrid_frontpage.forEach((img: any) => {
         this.images.unshift(
           new ImageItem({
@@ -93,7 +77,7 @@ export class LandingPageComponent implements OnInit {
   }
 
   private setTitle(): void {
-    this.title.setTitle('Home | ' + this.mainInfo.section_long_name);
+    this.title.setTitle('Home | ' + this.mainInfo?.section_long_name);
   }
 
   private setGalleryThumb(): void {

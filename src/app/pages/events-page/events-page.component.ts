@@ -1,19 +1,13 @@
-import {
-  Component,
-  Inject,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
+import { NgIf } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
+
 import { CookieService } from 'ngx-cookie-service';
 
-import { IMainItem, MainService } from 'src/app/services/main.service';
-import { isPlatformServer, NgIf } from '@angular/common';
-import { PretixCalendarComponent } from '../../components/pretix-calendar/pretix-calendar.component';
-import { CustomCalendarComponent } from '../../components/custom-calendar/custom-calendar.component';
+import { CustomCalendarComponent } from 'src/app/components/custom-calendar/custom-calendar.component';
+import { PretixCalendarComponent } from 'src/app/components/pretix-calendar/pretix-calendar.component';
+import { MainService } from 'src/app/services/main.service';
+import { MainItem } from 'src/app/services/main-item';
 
 @Component({
   selector: 'esn-events-page',
@@ -23,39 +17,30 @@ import { CustomCalendarComponent } from '../../components/custom-calendar/custom
   imports: [NgIf, CustomCalendarComponent, PretixCalendarComponent],
 })
 export class EventsPageComponent implements OnInit {
-  public mainInfo: IMainItem | undefined;
   public loadPretix: boolean;
+  public mainInfo?: MainItem;
 
   constructor(
-    private title: Title,
-    private mainService: MainService,
     private cookieService: CookieService,
-    private transferState: TransferState,
-    @Inject(PLATFORM_ID) private platformId: object,
+    private mainService: MainService,
+    private title: Title,
   ) {
     this.loadPretix = this.cookieService.get('pretix') === 'true';
   }
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get(makeStateKey('mainInfo'), undefined);
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
 
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    } else {
+    if (this.mainInfo) {
       this.setTitle();
     }
-  }
-
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
-    this.setTitle();
   }
 
   public setLoadPretix(): void {
@@ -64,6 +49,6 @@ export class EventsPageComponent implements OnInit {
   }
 
   private setTitle(): void {
-    this.title.setTitle('Events | ' + this.mainInfo!.section_long_name);
+    this.title.setTitle('Events | ' + this.mainInfo?.section_long_name);
   }
 }

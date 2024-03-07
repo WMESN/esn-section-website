@@ -1,21 +1,12 @@
-import { DOCUMENT, isPlatformServer, NgIf } from '@angular/common';
-import {
-  Component,
-  Inject,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
-import { firstValueFrom } from 'rxjs';
-import {
-  IStatutesItem,
-  StatutesService,
-} from 'src/app/pages/statutes-page/statutes.service';
-
-import { IMainItem, MainService } from 'src/app/services/main.service';
-import { environment } from 'src/environments/environment';
+import { DOCUMENT, NgIf } from '@angular/common';
+import { Component, Inject, OnInit } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+
+import { StatutesService } from 'src/app/pages/statutes-page/statutes.service';
+import { StatutesItem } from 'src/app/pages/statutes-page/statutes-item';
+import { MainService } from 'src/app/services/main.service';
+import { MainItem } from 'src/app/services/main-item';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'esn-footer',
@@ -25,57 +16,35 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   imports: [NgIf, RouterLink, RouterLinkActive],
 })
 export class FooterComponent implements OnInit {
-  public mainInfo: IMainItem | undefined;
-  public statutes: IStatutesItem | undefined;
-  public timestamp: string = environment.timeStamp;
+  public mainInfo?: MainItem;
+  public statutes?: StatutesItem;
   public statutesExist = false;
+  public timestamp: string = environment.timeStamp;
 
   constructor(
+    @Inject(DOCUMENT) private document: Document,
     private mainService: MainService,
     private statutesService: StatutesService,
-    private transferState: TransferState,
-    @Inject(PLATFORM_ID) private platformId: object,
-    @Inject(DOCUMENT) private document: Document,
   ) {}
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get<IMainItem | undefined>(
-      makeStateKey('mainInfo'),
-      undefined,
-    );
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    }
-
-    this.statutes = this.transferState.get<IStatutesItem | undefined>(
-      makeStateKey('statutes'),
-      undefined,
-    );
-    if (!this.statutes) {
-      this.fetchStatutes();
-    }
-  }
-
-  async fetchStatutes(): Promise<void> {
-    const statutes = await firstValueFrom(this.statutesService.fetchStatutes());
-    this.statutesExist = !!statutes;
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IStatutesItem | undefined>(
-        makeStateKey('statutes'),
-        this.statutes,
-      );
-    }
-  }
-
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
+    this.statutesService.getStatutes().subscribe({
+      next: (statutes?: StatutesItem) => {
+        this.statutes = statutes!;
+        this.statutesExist = !!statutes;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
   }
 
   public pink(): void {

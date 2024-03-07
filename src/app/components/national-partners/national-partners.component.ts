@@ -1,12 +1,10 @@
-import { Component } from '@angular/core';
-import { Observable, shareReplay } from 'rxjs';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
 
-import {
-  INationalPartnerItem,
-  NationalPartnerService,
-} from 'src/app/pages/esncard-page/national-partners.service';
 import { MarkdownModule } from 'ngx-markdown';
-import { NgIf, NgFor, AsyncPipe } from '@angular/common';
+
+import { NationalPartnerItem } from 'src/app/pages/esncard-page/national-partner-item';
+import { PartnerService } from 'src/app/pages/esncard-page/partner.service';
 import { environment as env } from 'src/environments/environment';
 
 @Component({
@@ -16,21 +14,23 @@ import { environment as env } from 'src/environments/environment';
   standalone: true,
   imports: [NgIf, NgFor, MarkdownModule, AsyncPipe],
 })
-export class NationalPartnersComponent {
+export class NationalPartnersComponent implements OnInit {
   public directusImageLink = env.DIRECTUS_URL_IMAGE;
-  public nationalPartners$: Observable<INationalPartnerItem[]> | undefined;
+  public nationalPartners?: NationalPartnerItem[];
 
-  constructor(private nationalPartnerService: NationalPartnerService) {
-    this.setNationalPartners();
+  constructor(private partnerService: PartnerService) {}
+
+  ngOnInit(): void {
+    this.partnerService.getNationalPartners().subscribe({
+      next: (nationalPartners: NationalPartnerItem[]) => {
+        this.nationalPartners = nationalPartners;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
   }
-
-  private setNationalPartners(): void {
-    this.nationalPartners$ = this.nationalPartnerService
-      .fetchPageNationalPartner()
-      .pipe(shareReplay(1));
-  }
-
-  public toggleInfo(partner: INationalPartnerItem): void {
+  public toggleInfo(partner: NationalPartnerItem): void {
     partner.show = !partner.show;
 
     if (!partner.show) {

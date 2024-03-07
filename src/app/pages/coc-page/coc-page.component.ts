@@ -1,18 +1,14 @@
-import {
-  Component,
-  Inject,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
+import { NgIf } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
 
-import { ICocItem, CocService } from './coc.service';
-import { IMainItem, MainService } from 'src/app/services/main.service';
-import { isPlatformServer, NgIf } from '@angular/common';
 import { MarkdownModule } from 'ngx-markdown';
+
+import { MainService } from 'src/app/services/main.service';
+import { MainItem } from 'src/app/services/main-item';
+
+import { CocService } from './coc.service';
+import { CocItem } from './coc-item';
 
 @Component({
   selector: 'esn-coc-page',
@@ -22,57 +18,41 @@ import { MarkdownModule } from 'ngx-markdown';
   imports: [NgIf, MarkdownModule],
 })
 export class CocPageComponent implements OnInit {
-  public cocItem: ICocItem | undefined;
-  private mainInfo: IMainItem | undefined;
+  public cocItem?: CocItem;
+  private mainInfo?: MainItem;
 
   constructor(
-    private title: Title,
     private cocService: CocService,
     private mainService: MainService,
-    private transferState: TransferState,
-    @Inject(PLATFORM_ID) private platformId: object,
+    private title: Title,
   ) {}
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get(makeStateKey('mainInfo'), undefined);
-    this.cocItem = this.transferState.get(makeStateKey('cocItem'), undefined);
-
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    } else {
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
+    if (this.mainInfo) {
       this.setTitle();
     }
-    if (!this.cocItem) {
-      this.fetchCocInfo();
-    }
-  }
 
-  async fetchCocInfo(): Promise<void> {
-    this.cocItem = await firstValueFrom(this.cocService.fetchCoc()).then(
-      (res: any) => res,
-    );
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<ICocItem | undefined>(
-        makeStateKey('cocItem'),
-        this.cocItem,
-      );
-    }
-  }
-
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
+    this.cocService.getCoc().subscribe({
+      next: (cocItem?: CocItem) => {
+        this.cocItem = cocItem!;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
   }
 
   private setTitle(): void {
     this.title.setTitle(
-      'Code of Conduct | ' + this.mainInfo!.section_long_name,
+      'Code of Conduct | ' + this.mainInfo?.section_long_name,
     );
   }
 }

@@ -1,40 +1,34 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { catchError, shareReplay, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
-import { MessageService } from '../../services/message.service';
+import { ErrorService } from 'src/app/services/error.service';
 
-export interface ICocItem {
-  id: string;
-  Title: string;
-  MarkdownText: string;
-}
+import { CocItem } from './coc-item';
 
 @Injectable()
 export class CocService {
+  private cocSubject = new BehaviorSubject<CocItem | undefined>(undefined);
+  private url = 'https://strapi.esn-germany.de/web-legal-documents/4';
+
   constructor(
+    private errorService: ErrorService,
     private http: HttpClient,
-    private messageService: MessageService,
-  ) {}
-
-  fetchCoc(): Observable<ICocItem> {
-    const url = 'https://strapi.esn-germany.de/web-legal-documents/4';
-    return this.http.get<ICocItem>(url).pipe(
-      shareReplay(1),
-      tap(() => this.log('fetched coc')),
-      catchError(this.handleError<ICocItem>('fetchCocList')),
-    );
+  ) {
+    this.fetchCoc();
   }
 
-  private handleError<T>(operation = 'operation', result?: T) {
-    return (error: Error): Observable<T> => {
-      console.error(error);
-      this.log(`${operation} failed: ${error.message}`);
-      return of(result as T);
-    };
+  public getCoc(): Observable<CocItem | undefined> {
+    return this.cocSubject.asObservable();
   }
-  private log(message: string) {
-    this.messageService.add(`CocService: ${message}`);
+
+  private fetchCoc(): void {
+    this.http
+      .get<CocItem>(this.url)
+      .pipe(catchError(this.errorService.handleError<CocItem>('fetchCocList')))
+      .subscribe((coc) => {
+        this.cocSubject.next(coc);
+      });
   }
 }

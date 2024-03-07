@@ -1,25 +1,17 @@
-import {
-  Component,
-  Inject,
-  OnInit,
-  PLATFORM_ID,
-  TransferState,
-  makeStateKey,
-} from '@angular/core';
+import { NgClass, NgFor, NgIf } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
 
+import { ContentItemComponent } from 'src/app/components/content-item/content-item.component';
+import { NationalPartnersComponent } from 'src/app/components/national-partners/national-partners.component';
+import { OlaContentItemComponent } from 'src/app/components/ola-content-item/ola-content-item.component';
+import { MainService } from 'src/app/services/main.service';
+import { MainItem } from 'src/app/services/main-item';
 import { environment } from 'src/environments/environment';
-import { IPartnerItem, PartnerService } from './partner.service';
-import { IMainItem, MainService } from 'src/app/services/main.service';
-import {
-  INationalPartnerItem,
-  NationalPartnerService,
-} from './national-partners.service';
-import { isPlatformServer, NgIf, NgFor, NgClass } from '@angular/common';
-import { OlaContentItemComponent } from '../../components/ola-content-item/ola-content-item.component';
-import { NationalPartnersComponent } from '../../components/national-partners/national-partners.component';
-import { ContentItemComponent } from '../../components/content-item/content-item.component';
+
+import { PartnerService } from './partner.service';
+import { PartnerItem } from './partner-item';
+import { NationalPartnerItem } from './national-partner-item';
 
 @Component({
   selector: 'esn-esncard-page',
@@ -36,85 +28,52 @@ import { ContentItemComponent } from '../../components/content-item/content-item
   ],
 })
 export class EsncardPageComponent implements OnInit {
-  public partnerInfo: IPartnerItem[] | undefined;
-  public nationalPartner: INationalPartnerItem[] | undefined;
-  public directusImageLink: string = environment.DIRECTUS_URL_IMAGE;
   public cityName?: string;
+  public directusImageLink: string = environment.DIRECTUS_URL_IMAGE;
+  private mainInfo?: MainItem;
+  public nationalPartners?: NationalPartnerItem[];
   public readonly page: string = 'ESNcard_page';
-
-  private mainInfo: IMainItem | undefined;
+  public sectionPartners?: PartnerItem[];
 
   constructor(
-    private title: Title,
-    private partnerService: PartnerService,
-    private nationalPartnerService: NationalPartnerService,
     private mainService: MainService,
-    private transferState: TransferState,
-    @Inject(PLATFORM_ID) private platformId: object,
+    private partnerService: PartnerService,
+    private title: Title,
   ) {}
 
   ngOnInit(): void {
-    this.mainInfo = this.transferState.get(makeStateKey('mainInfo'), undefined);
-    this.partnerInfo = this.transferState.get(
-      makeStateKey('partnerInfo'),
-      undefined,
-    );
-    this.nationalPartner = this.transferState.get(
-      makeStateKey('nationalPartner'),
-      undefined,
-    );
+    this.mainService.getMainInformation().subscribe({
+      next: (mainInfo?: MainItem) => {
+        this.mainInfo = mainInfo;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
 
-    if (!this.mainInfo) {
-      this.fetchMainInfo();
-    } else {
+    if (this.mainInfo) {
       this.setTitle();
     }
-    if (!this.partnerInfo) {
-      this.fetchPartnerInfo();
-    }
-    if (!this.nationalPartner) {
-      this.fetchNationalPartner();
-    }
+
+    this.partnerService.getSectionPartners().subscribe({
+      next: (sectionPartners: PartnerItem[]) => {
+        this.sectionPartners = sectionPartners;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
+    this.partnerService.getNationalPartners().subscribe({
+      next: (nationalPartners: NationalPartnerItem[]) => {
+        this.nationalPartners = nationalPartners;
+      },
+      error: (error) => {
+        console.error(error);
+      },
+    });
   }
 
-  async fetchMainInfo(): Promise<void> {
-    this.mainInfo = await firstValueFrom(this.mainService.fetchMain());
-
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IMainItem>(
-        makeStateKey('mainInfo'),
-        this.mainInfo,
-      );
-    }
-    this.setTitle();
-    this.cityName = this.mainInfo.section_short_name;
-  }
-
-  async fetchPartnerInfo(): Promise<void> {
-    this.partnerInfo = await firstValueFrom(
-      this.partnerService.fetchPagePartner(),
-    );
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<IPartnerItem[]>(
-        makeStateKey('partnerInfo'),
-        this.partnerInfo,
-      );
-    }
-  }
-
-  async fetchNationalPartner(): Promise<void> {
-    this.nationalPartner = await firstValueFrom(
-      this.nationalPartnerService.fetchPageNationalPartner(),
-    );
-    if (isPlatformServer(this.platformId)) {
-      this.transferState.set<INationalPartnerItem[]>(
-        makeStateKey('nationalPartner'),
-        this.nationalPartner,
-      );
-    }
-  }
-
-  public toggleInfo(partner: IPartnerItem): void {
+  public toggleInfo(partner: PartnerItem): void {
     partner.show = !partner.show;
     if (!partner.show) {
       partner.buttonText = `More info`;
@@ -125,7 +84,7 @@ export class EsncardPageComponent implements OnInit {
 
   private setTitle(): void {
     this.title.setTitle(
-      'ESNcard & Partners | ' + this.mainInfo!.section_long_name,
+      'ESNcard & Partners | ' + this.mainInfo?.section_long_name,
     );
   }
 }

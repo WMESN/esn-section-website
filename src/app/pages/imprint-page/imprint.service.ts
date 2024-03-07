@@ -1,42 +1,45 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { catchError, map, shareReplay, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
+import { ErrorService } from 'src/app/services/error.service';
 import { environment as env } from 'src/environments/environment';
-import { MessageService } from '../../services/message.service';
+
+import { ImprintItem } from './imprint-item';
 
 export interface IImprintItem {
-  title: string;
-  text: string;
+  data: ImprintItem[];
 }
 
 @Injectable()
 export class ImprintService {
+  private imprintSubject = new BehaviorSubject<ImprintItem | undefined>(
+    undefined,
+  );
   private url = `${env.DIRECTUS_URL}imprint${env.DIRECTUS_SECTION_FILTER}${env.SECTION_NAME}&fields=title,text`;
 
   constructor(
+    private errorService: ErrorService,
     private http: HttpClient,
-    private messageService: MessageService,
-  ) {}
-
-  fetchImprint(): Observable<IImprintItem> {
-    return this.http.get<IImprintItem>(this.url).pipe(
-      shareReplay(1),
-      map((res: any) => res.data[0]),
-      tap(() => this.log('fetched imprint')),
-      catchError(this.handleError<IImprintItem>('fetchImprintList')),
-    );
+  ) {
+    this.fetchImprint();
   }
 
-  private handleError<T>(operation = 'operation', result?: T) {
-    return (error: any): Observable<T> => {
-      console.error(error);
-      this.log(`${operation} failed: ${error.message}`);
-      return of(result as T);
-    };
+  public getImprint(): Observable<ImprintItem | undefined> {
+    return this.imprintSubject.asObservable();
   }
-  private log(message: string) {
-    this.messageService.add(`ImprintService: ${message}`);
+
+  private fetchImprint(): void {
+    this.http
+      .get<IImprintItem>(this.url)
+      .pipe(
+        catchError(
+          this.errorService.handleError<IImprintItem>('fetchImprintList'),
+        ),
+      )
+      .subscribe((imprint: IImprintItem) => {
+        this.imprintSubject.next(imprint?.data[0]);
+      });
   }
 }
